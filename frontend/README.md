@@ -1,12 +1,20 @@
-# Frontend Run Guide
+# Frontend Guide
 
-## Start the API
+## Product Role
+
+- React is the primary public-facing workflow UI.
+- Streamlit remains the control console and compatibility entry.
+- All task pages connect to the same backend run center.
+
+## Start Backend
 
 ```powershell
-C:\Users\24260\.conda\envs\data_analysis_py311\python.exe -m uvicorn app.api.main:app --host 127.0.0.1 --port 8011 --reload
+python api_server.py
 ```
 
-## Start the React frontend
+Default API address: `http://127.0.0.1:8011`
+
+## Start React
 
 ```powershell
 cd frontend
@@ -14,12 +22,39 @@ npm install
 npm run dev
 ```
 
-The Vite dev server runs on `http://localhost:5174` and proxies `/api` requests to `http://127.0.0.1:8011`.
+Default Vite dev address: `http://127.0.0.1:5174`
 
-## Keep Streamlit available
+## Preview Production Build
+
+```powershell
+cd frontend
+npm run build
+npm run preview
+```
+
+Default preview address: `http://127.0.0.1:4174`
+
+## Run Frontend Tests
+
+```powershell
+cd frontend
+npm run test
+```
+
+## Main Routes
+
+- `/`
+- `/reports`
+- `/report-complete`
+- `/report-integrate`
+- `/runs`
+- `/presets`
+- `/settings`
+
+## Keep Streamlit Available
 
 ```powershell
 streamlit run streamlit_app.py
 ```
 
-The current first implementation slice focuses on the React smart-review flow. Report-related flows remain available in Streamlit.
+Default Streamlit address: `http://127.0.0.1:8501`

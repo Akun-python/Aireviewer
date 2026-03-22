@@ -1,5 +1,10 @@
 import { NavLink, Route, Routes } from "react-router-dom";
-import PlaceholderPage from "./pages/PlaceholderPage";
+import PresetsPage from "./pages/PresetsPage";
+import ReportCompletePage from "./pages/ReportCompletePage";
+import ReportIntegratePage from "./pages/ReportIntegratePage";
+import ReportPage from "./pages/ReportPage";
+import RunsPage from "./pages/RunsPage";
+import SettingsPage from "./pages/SettingsPage";
 import SmartReviewPage from "./pages/SmartReviewPage";
 
 const navItems = [
@@ -7,6 +12,9 @@ const navItems = [
   { to: "/reports", label: "课题报告" },
   { to: "/report-complete", label: "报告完善" },
   { to: "/report-integrate", label: "多章整合" },
+  { to: "/runs", label: "运行中心" },
+  { to: "/presets", label: "预设规则" },
+  { to: "/settings", label: "设置" },
 ];
 
 export default function App() {
@@ -14,10 +22,10 @@ export default function App() {
     <div className="app-shell">
       <aside className="app-rail">
         <div className="brand-block">
-          <div className="brand-mark">WR</div>
+          <div className="brand-mark">AA</div>
           <div>
-            <div className="brand-title">Word Revision Agent</div>
-            <div className="brand-subtitle">React workflow frontend</div>
+            <div className="brand-title">学术文稿助手</div>
+            <div className="brand-subtitle">React 主入口 / Streamlit 控制台 / API 统一运行中心</div>
           </div>
         </div>
         <nav className="nav-stack">
@@ -27,15 +35,20 @@ export default function App() {
             </NavLink>
           ))}
         </nav>
-        <div className="rail-note">Streamlit 仍保留。React 先承接更强调流程感的主路径，避免所有参数挤在同一屏。</div>
+        <div className="rail-note">
+          React 负责主产品流程与运行中心，Streamlit 继续保留为内部控制台与兼容入口。
+        </div>
       </aside>
 
       <main className="app-main">
         <Routes>
           <Route element={<SmartReviewPage />} path="/" />
-          <Route element={<PlaceholderPage description="生成式报告能力后续会迁到统一服务层。当前建议继续使用 Streamlit 版本。" title="课题报告生成" />} path="/reports" />
-          <Route element={<PlaceholderPage description="已有报告补全功能将在统一 run center 上承接。当前建议继续使用 Streamlit 版本。" title="完善已有报告" />} path="/report-complete" />
-          <Route element={<PlaceholderPage description="多章节整合依赖较长链路，先留在 Streamlit，后续迁移到同一批量任务框架。" title="多章节整合" />} path="/report-integrate" />
+          <Route element={<ReportPage />} path="/reports" />
+          <Route element={<ReportCompletePage />} path="/report-complete" />
+          <Route element={<ReportIntegratePage />} path="/report-integrate" />
+          <Route element={<RunsPage />} path="/runs" />
+          <Route element={<PresetsPage />} path="/presets" />
+          <Route element={<SettingsPage />} path="/settings" />
         </Routes>
       </main>
     </div>

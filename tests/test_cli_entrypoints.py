@@ -23,6 +23,8 @@ def test_root_main_help_smoke() -> None:
     assert completed.returncode == 0
     assert "Word revision agent" in completed.stdout
     assert "--input" in completed.stdout
+    assert "--preset" in completed.stdout
+    assert "--diagnostics-only" in completed.stdout
 
 
 def test_module_main_help_smoke() -> None:
@@ -30,6 +32,7 @@ def test_module_main_help_smoke() -> None:
     assert completed.returncode == 0
     assert "Word revision agent" in completed.stdout
     assert "--intent" in completed.stdout
+    assert "--diagnostics" in completed.stdout
 
 
 def test_formatting_runner_help_smoke() -> None:

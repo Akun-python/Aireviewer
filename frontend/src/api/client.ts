@@ -1,4 +1,4 @@
-import type { Capabilities, ReviewRun } from "../types";
+import type { AppRun, Capabilities, DiagnosticsPayload, ReviewPreset } from "../types";
 
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ?? "";
 
@@ -12,45 +12,72 @@ function buildUrl(path: string): string {
   return `${API_BASE}${path}`;
 }
 
-export async function fetchCapabilities(): Promise<Capabilities> {
-  const response = await fetch(buildUrl("/api/capabilities"));
+async function readJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    throw new Error(`Failed to load capabilities: ${response.status}`);
+    const payload = (await response.json().catch(() => ({}))) as { detail?: string };
+    throw new Error(payload.detail || `Request failed: ${response.status}`);
   }
-  return response.json();
+  return response.json() as Promise<T>;
 }
 
-export async function fetchRuns(mode = "review"): Promise<ReviewRun[]> {
-  const response = await fetch(buildUrl(`/api/runs?mode=${encodeURIComponent(mode)}`));
-  if (!response.ok) {
-    throw new Error(`Failed to load runs: ${response.status}`);
-  }
-  const payload = (await response.json()) as { runs: ReviewRun[] };
-  return payload.runs;
-}
-
-export async function fetchRun(runId: string): Promise<ReviewRun> {
-  const response = await fetch(buildUrl(`/api/review/runs/${runId}`));
-  if (!response.ok) {
-    throw new Error(`Failed to load run: ${response.status}`);
-  }
-  return response.json();
-}
-
-export async function createReviewRun(formData: FormData): Promise<ReviewRun> {
-  const response = await fetch(buildUrl("/api/review/runs"), {
+async function postForm<T>(path: string, formData: FormData): Promise<T> {
+  const response = await fetch(buildUrl(path), {
     method: "POST",
     body: formData,
   });
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => ({}))) as { detail?: string };
-    throw new Error(payload.detail || `Failed to create run: ${response.status}`);
-  }
-  return response.json();
+  return readJson<T>(response);
+}
+
+export function getApiBase(): string {
+  return API_BASE || window.location.origin;
+}
+
+export async function fetchCapabilities(): Promise<Capabilities> {
+  const response = await fetch(buildUrl("/api/capabilities"));
+  return readJson<Capabilities>(response);
+}
+
+export async function fetchRuns(mode?: string): Promise<AppRun[]> {
+  const suffix = mode ? `?mode=${encodeURIComponent(mode)}` : "";
+  const response = await fetch(buildUrl(`/api/runs${suffix}`));
+  const payload = await readJson<{ runs: AppRun[] }>(response);
+  return payload.runs;
+}
+
+export async function fetchRun(runId: string): Promise<AppRun> {
+  const response = await fetch(buildUrl(`/api/runs/${runId}`));
+  return readJson<AppRun>(response);
+}
+
+export async function fetchReviewPresets(): Promise<ReviewPreset[]> {
+  const response = await fetch(buildUrl("/api/review/presets"));
+  const payload = await readJson<{ presets: ReviewPreset[] }>(response);
+  return payload.presets;
+}
+
+export async function fetchRunDiagnostics(runId: string): Promise<DiagnosticsPayload> {
+  const response = await fetch(buildUrl(`/api/review/runs/${runId}/diagnostics`));
+  return readJson<DiagnosticsPayload>(response);
+}
+
+export async function createReviewRun(formData: FormData): Promise<AppRun> {
+  return postForm<AppRun>("/api/review/runs", formData);
+}
+
+export async function createReportRun(formData: FormData): Promise<AppRun> {
+  return postForm<AppRun>("/api/report/runs", formData);
+}
+
+export async function createReportCompleteRun(formData: FormData): Promise<AppRun> {
+  return postForm<AppRun>("/api/report-complete/runs", formData);
+}
+
+export async function createReportIntegrateRun(formData: FormData): Promise<AppRun> {
+  return postForm<AppRun>("/api/report-integrate/runs", formData);
 }
 
 export function createRunEventSource(runId: string, after = 0): EventSource {
-  return new EventSource(buildUrl(`/api/review/runs/${runId}/events?after=${after}`));
+  return new EventSource(buildUrl(`/api/runs/${runId}/events?after=${after}`));
 }
 
 export function artifactUrl(path: string): string {
