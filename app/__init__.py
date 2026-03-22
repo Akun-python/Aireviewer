@@ -1,0 +1,1 @@
+﻿"""Word revision agent package."""
