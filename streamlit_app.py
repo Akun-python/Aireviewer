@@ -13,6 +13,8 @@ import re
 
 import streamlit as st
 
+from app.services.diagnostics_service import write_review_diagnostics
+from app.services.preset_service import apply_preset_defaults, list_review_presets
 from app.settings import AppSettings, load_settings
 from app.workflows.pipeline import BASE_CONSTRAINTS, BASE_EXPERT_VIEW, SUMMARY_TEMPLATE, run_revision
 from app.workflows.report import DEFAULT_FRAMEWORK, generate_report, complete_report_docx
@@ -29,6 +31,9 @@ _CHAT_SESSION_TITLE_INPUT_PREFIX = "reviewer_chat_session_title_input"
 _CHAT_PENDING_WIDGET_STATE_KEY = "reviewer_chat_pending_widget_state"
 _INTENT_INPUT_KEY = "reviewer_intent_input"
 _INTENT_PROMPT_SELECT_KEY = "reviewer_intent_prompt_select"
+_REVIEW_PRESET_KEY = "reviewer_review_preset_key"
+_REVIEW_DIAGNOSTICS_KEY = "reviewer_review_diagnostics"
+_REVIEW_DIAGNOSTICS_ONLY_KEY = "reviewer_review_diagnostics_only"
 _FOCUS_FILTER_KEY = "reviewer_focus_filter_only_targets"
 _FORMAT_PROFILE_SELECT_KEY = "reviewer_format_profile_select"
 _MEMORY_SCOPE_KEY = "reviewer_review_memory_scope"
@@ -847,6 +852,55 @@ def _render_report_ui(settings: AppSettings, workspace: Path) -> None:
             if isinstance(logs, list) and logs:
                 with st.expander("整合日志", expanded=False):
                     st.code(_tail_lines_text("\n".join(logs), _streamlit_log_tail_lines()))
+def _render_diagnostics_result(diagnostics_path: Path, *, run_id: str, key_prefix: str) -> None:
+    diagnostics_text = _safe_read_text(diagnostics_path, encoding="utf-8")
+    if diagnostics_text is None:
+        st.error(f"读取学术诊断失败：{diagnostics_path}")
+        return
+    st.download_button(
+        "下载学术诊断(JSON)",
+        data=diagnostics_text,
+        file_name=diagnostics_path.name,
+        mime="application/json",
+        key=f"{key_prefix}dl_diagnostics_{run_id}",
+        use_container_width=True,
+    )
+    payload = _try_load_json(diagnostics_text)
+    if not isinstance(payload, dict):
+        with st.expander("学术诊断预览", expanded=False):
+            st.text(diagnostics_text)
+        return
+
+    overview = payload.get("overview") if isinstance(payload.get("overview"), dict) else {}
+    cards = overview.get("cards") if isinstance(overview.get("cards"), list) else []
+    average_score = overview.get("average_score", "-")
+    critical_count = overview.get("critical_count", 0)
+    warning_count = overview.get("warning_count", 0)
+    summary_text = overview.get("summary") if isinstance(overview.get("summary"), str) else ""
+
+    st.caption(
+        f"学术诊断总览：平均分 {average_score}，critical {critical_count}，warning {warning_count}"
+    )
+    if summary_text:
+        st.write(summary_text)
+
+    if cards:
+        cols = st.columns(min(3, len(cards)))
+        for index, card in enumerate(cards):
+            if not isinstance(card, dict):
+                continue
+            with cols[index % len(cols)]:
+                label = card.get("label") if isinstance(card.get("label"), str) else card.get("key", "诊断项")
+                severity = card.get("severity") if isinstance(card.get("severity"), str) else "info"
+                score = card.get("score", 0)
+                headline = card.get("headline") if isinstance(card.get("headline"), str) else ""
+                st.markdown(f"**{label}**")
+                st.caption(f"severity: {severity} · score: {score}")
+                if headline:
+                    st.write(headline)
+
+    with st.expander("学术诊断详情", expanded=False):
+        st.json(payload)
 
 
 def _render_run_result(run: dict, *, show_success_header: bool, key_prefix: str) -> None:
@@ -854,6 +908,7 @@ def _render_run_result(run: dict, *, show_success_header: bool, key_prefix: str)
     output_path_raw = run.get("output_path") if isinstance(run.get("output_path"), str) else ""
     summary_path_raw = run.get("summary_path") if isinstance(run.get("summary_path"), str) else ""
     log_path_raw = run.get("log_path") if isinstance(run.get("log_path"), str) else ""
+    diagnostics_path_raw = run.get("diagnostics_path") if isinstance(run.get("diagnostics_path"), str) else ""
     tables_path_raw = run.get("tables_path") if isinstance(run.get("tables_path"), str) else ""
     images_path_raw = run.get("images_path") if isinstance(run.get("images_path"), str) else ""
     model_output = run.get("model_output") if isinstance(run.get("model_output"), str) else ""
@@ -863,6 +918,7 @@ def _render_run_result(run: dict, *, show_success_header: bool, key_prefix: str)
     output_path = Path(output_path_raw) if output_path_raw else None
     summary_path = Path(summary_path_raw) if summary_path_raw else None
     log_path = Path(log_path_raw) if log_path_raw else None
+    diagnostics_path = Path(diagnostics_path_raw) if diagnostics_path_raw else None
     tables_path = Path(tables_path_raw) if tables_path_raw else None
     images_path = Path(images_path_raw) if images_path_raw else None
 
@@ -899,6 +955,13 @@ def _render_run_result(run: dict, *, show_success_header: bool, key_prefix: str)
                         st.error(f"打开目录失败：{error}")
     elif output_path_raw:
         st.warning(f"输出文件不存在：{output_path_raw}")
+
+    if diagnostics_path and diagnostics_path.exists():
+        if show_success_header and not (output_path and output_path.exists()):
+            st.success(f"学术诊断完成：{diagnostics_path.name}")
+        _render_diagnostics_result(diagnostics_path, run_id=run_id, key_prefix=key_prefix)
+    elif diagnostics_path_raw:
+        st.warning(f"学术诊断文件不存在：{diagnostics_path_raw}")
 
     if summary_path and summary_path.exists():
         summary_text = _safe_read_text(summary_path, encoding="utf-8")
@@ -1080,8 +1143,8 @@ def _render_run_result(run: dict, *, show_success_header: bool, key_prefix: str)
 
 
 def main() -> None:
-    st.set_page_config(page_title="Word审阅助手", layout="wide")
-    st.title("Word审阅助手")
+    st.set_page_config(page_title="学术文稿助手", layout="wide")
+    st.title("学术文稿助手")
 
     settings = load_settings()
     workspace = _prepare_workspace(settings.root_dir)
@@ -1103,6 +1166,22 @@ def main() -> None:
     has_python_docx = _has_python_docx()
     zhengda_template_path = Path(settings.root_dir) / "templates" / "正大杯报告格式.dotx"
     has_zhengda_template = zhengda_template_path.exists()
+    review_presets = list_review_presets()
+    preset_map = {item["key"]: item for item in review_presets if isinstance(item, dict) and isinstance(item.get("key"), str)}
+    preset_options = [item["key"] for item in review_presets if isinstance(item, dict) and isinstance(item.get("key"), str)]
+    if not preset_options:
+        preset_options = ["general_academic"]
+        preset_map = {
+            "general_academic": {
+                "key": "general_academic",
+                "label": "通用学术论文/综述",
+                "description": "",
+                "expert_view": BASE_EXPERT_VIEW,
+                "default_constraints": list(BASE_CONSTRAINTS),
+                "diagnostics_dimensions": [],
+                "section_expectations": [],
+            }
+        }
     engine_options = ["auto"]
     if has_win32:
         engine_options.append("win32com")
@@ -1111,6 +1190,31 @@ def main() -> None:
 
     with st.sidebar:
         st.header("引擎与模型")
+        preset_key = st.selectbox(
+            "学术预设",
+            options=preset_options,
+            index=preset_options.index("general_academic") if "general_academic" in preset_options else 0,
+            key=_REVIEW_PRESET_KEY,
+            format_func=lambda key: preset_map.get(key, {}).get("label", key),
+        )
+        selected_preset = preset_map.get(preset_key, preset_map[preset_options[0]])
+        preset_description = selected_preset.get("description") if isinstance(selected_preset.get("description"), str) else ""
+        if preset_description:
+            st.caption(preset_description)
+        diagnostics_enabled = st.checkbox(
+            "生成学术诊断",
+            value=True,
+            key=_REVIEW_DIAGNOSTICS_KEY,
+            help="输出统一的 *.diagnostics.json，并在结果区展示结构化诊断卡片。",
+        )
+        diagnostics_only = st.checkbox(
+            "仅做学术诊断，不生成修订文档",
+            value=False,
+            key=_REVIEW_DIAGNOSTICS_ONLY_KEY,
+            disabled=not diagnostics_enabled,
+        )
+        if diagnostics_only and not diagnostics_enabled:
+            diagnostics_enabled = True
         revision_engine = st.selectbox(
             "审阅引擎",
             options=engine_options,
@@ -1308,6 +1412,37 @@ def main() -> None:
             st.error("当前未检测到 Win32 Word（pywin32），无法应用排版风格。请安装 pywin32 并确保本机有 Word。")
         if has_win32 and not has_zhengda_template:
             st.warning(f"未找到模板：{zhengda_template_path}（可先运行 tools/create_zhengda_cup_template.py 生成）")
+        with st.expander("预设说明", expanded=False):
+            section_expectations = (
+                selected_preset.get("section_expectations")
+                if isinstance(selected_preset.get("section_expectations"), list)
+                else []
+            )
+            diagnostics_dimensions = (
+                selected_preset.get("diagnostics_dimensions")
+                if isinstance(selected_preset.get("diagnostics_dimensions"), list)
+                else []
+            )
+            sample_use_cases = (
+                selected_preset.get("sample_use_cases")
+                if isinstance(selected_preset.get("sample_use_cases"), list)
+                else []
+            )
+            if diagnostics_dimensions:
+                st.write("诊断维度：")
+                for item in diagnostics_dimensions:
+                    st.write(f"- {item}")
+            if section_expectations:
+                st.write("重点章节：")
+                for item in section_expectations:
+                    if isinstance(item, dict):
+                        label = item.get("label") if isinstance(item.get("label"), str) else item.get("key", "")
+                        st.write(f"- {label}")
+            if sample_use_cases:
+                st.write("适用场景：")
+                for item in sample_use_cases:
+                    if isinstance(item, str) and item.strip():
+                        st.write(f"- {item.strip()}")
 
         st.divider()
         st.header("聊天会话")
@@ -1401,7 +1536,17 @@ def main() -> None:
     col_left, col_right = st.columns([2, 1])
     with col_left:
         uploaded = st.file_uploader("上传 Word 文件(.docx/.docm/.dotx/.dotm)", type=["docx", "docm", "dotx", "dotm"])
-        st.markdown(f"**审阅角色：** {BASE_EXPERT_VIEW}")
+        preset_expert_view = (
+            selected_preset.get("expert_view")
+            if isinstance(selected_preset.get("expert_view"), str) and selected_preset.get("expert_view")
+            else BASE_EXPERT_VIEW
+        )
+        preset_default_constraints = (
+            selected_preset.get("default_constraints")
+            if isinstance(selected_preset.get("default_constraints"), list)
+            else list(BASE_CONSTRAINTS)
+        )
+        st.markdown(f"**审阅角色：** {preset_expert_view}")
         prompt_dir = _resolve_prompt_dir(settings.root_dir)
         prompt_files = _list_prompt_files(prompt_dir) if prompt_dir else []
         prompt_placeholder = "（不使用预置提示词）"
@@ -1467,8 +1612,9 @@ def main() -> None:
         if focus_only:
             st.warning("已开启聚焦模式：本次将只审阅你在“审阅目标/需求”中明确提到的段落/章节/标题。")
         st.markdown("**默认约束：**")
-        for item in BASE_CONSTRAINTS:
-            st.write(f"- {item}")
+        for item in preset_default_constraints:
+            if isinstance(item, str) and item.strip():
+                st.write(f"- {item}")
         extra_constraints = st.text_area(
             "附加约束(可选，每行一条)",
             placeholder="在此补充额外约束...",
@@ -1508,15 +1654,15 @@ def main() -> None:
         if not uploaded:
             status.error("请上传 Word 文件（.docx/.docm/.dotx/.dotm）。")
             should_run = False
-        if not intent:
+        if not intent and not diagnostics_only:
             status.error("请输入审阅目标/需求。")
             should_run = False
         if not has_win32 and not has_python_docx:
             status.error("当前未检测到可用审阅引擎，请先安装 pywin32 或 python-docx。")
             should_run = False
-        if revision_engine == "python-docx":
+        if revision_engine == "python-docx" and not diagnostics_only:
             st.warning("python-docx 无法写入Word原生批注，建议会以红色文字附在句子/段落后。")
-        if revision_engine == "auto" and not has_win32 and not allow_py_docx_fallback:
+        if revision_engine == "auto" and not has_win32 and not allow_py_docx_fallback and not diagnostics_only:
             status.error("自动模式无法使用win32com时将失败；请安装pywin32，或改选python-docx并接受红色建议附在句子/段落后。")
             should_run = False
 
@@ -1548,22 +1694,39 @@ def main() -> None:
         settings.format_profile = format_profile
 
         constraints = _parse_extra_constraints(extra_constraints)
+        resolved_expert_view, resolved_format_profile, merged_constraints = apply_preset_defaults(
+            preset_key,
+            expert_view="",
+            format_profile=format_profile,
+            constraints=constraints,
+        )
+        settings.format_profile = resolved_format_profile
 
-        status.info("正在执行审阅...")
+        status.info("正在执行学术审阅...")
         run_status = "success"
         run_error = ""
+        diagnostics_path = output_path.with_suffix(".diagnostics.json")
         try:
-            result = run_revision(
-                settings=settings,
-                input_path=str(input_path),
-                output_path=str(output_path),
-                intent=intent,
-                expert_view=BASE_EXPERT_VIEW,
-                constraints=constraints,
-                allow_expansion=allow_expansion,
-                expansion_level=expansion_level,
-                allow_web_search=allow_web_search_effective,
-            )
+            if diagnostics_only:
+                result = {}
+            else:
+                result = run_revision(
+                    settings=settings,
+                    input_path=str(input_path),
+                    output_path=str(output_path),
+                    intent=intent,
+                    expert_view=resolved_expert_view,
+                    constraints=merged_constraints,
+                    allow_expansion=allow_expansion,
+                    expansion_level=expansion_level,
+                    allow_web_search=allow_web_search_effective,
+                )
+            if diagnostics_enabled:
+                diagnostics_path = write_review_diagnostics(
+                    input_path=str(input_path),
+                    output_path=str(output_path),
+                    preset_key=preset_key,
+                )
         except RuntimeError as exc:
             run_status = "failed"
             run_error = str(exc)
@@ -1575,7 +1738,10 @@ def main() -> None:
             status.error(run_error)
             result = {}
         else:
-            status.success("审阅完成。")
+            if diagnostics_only:
+                status.success("学术诊断完成。")
+            else:
+                status.success("审阅完成。")
 
         summary_path = output_path.with_suffix(".summary.json")
         log_path = output_path.with_suffix(".log.txt")
@@ -1591,6 +1757,8 @@ def main() -> None:
             "id": uuid.uuid4().hex,
             "created_at": _now_iso(),
             "input_file": uploaded.name,
+            "preset_key": preset_key,
+            "preset_label": selected_preset.get("label", preset_key),
             "engine": revision_engine,
             "format_profile": format_profile,
             "strip_existing_comments": bool(strip_existing_comments),
@@ -1602,13 +1770,16 @@ def main() -> None:
             "extract_images": bool(extract_docx_images),
             "extract_tables": bool(extract_tables or analyze_table_images),
             "table_image_understanding": bool(analyze_table_images),
+            "diagnostics": bool(diagnostics_enabled),
+            "diagnostics_only": bool(diagnostics_only),
             "intent": intent,
-            "constraints": constraints,
+            "constraints": merged_constraints,
             "status": run_status,
             "error": run_error,
-            "output_path": str(output_path),
-            "summary_path": str(summary_path) if summary_path.exists() else "",
+            "output_path": str(output_path) if output_path.exists() else "",
+            "summary_path": str(summary_path) if (summary_path.exists() and not diagnostics_only) else "",
             "log_path": str(log_path) if log_path.exists() else "",
+            "diagnostics_path": str(diagnostics_path) if (diagnostics_enabled and diagnostics_path.exists()) else "",
             "tables_path": str(tables_path) if tables_path.exists() else "",
             "images_path": str(images_path) if images_path.exists() else "",
             "model_output": model_output,
@@ -1659,6 +1830,7 @@ def main() -> None:
     for run in runs:
         created_at = run.get("created_at") if isinstance(run.get("created_at"), str) else ""
         input_file = run.get("input_file") if isinstance(run.get("input_file"), str) else ""
+        preset_label = run.get("preset_label") if isinstance(run.get("preset_label"), str) else ""
         intent_text = run.get("intent") if isinstance(run.get("intent"), str) else ""
         engine = run.get("engine") if isinstance(run.get("engine"), str) else ""
         fmt = run.get("format_profile") if isinstance(run.get("format_profile"), str) else ""
@@ -1667,18 +1839,26 @@ def main() -> None:
         allow_expansion_flag = run.get("allow_expansion")
         expansion_level_flag = run.get("expansion_level")
         allow_web_search_flag = run.get("allow_web_search")
+        diagnostics_flag = run.get("diagnostics")
+        diagnostics_only_flag = run.get("diagnostics_only")
 
         def _render_user() -> None:
             if created_at:
                 st.markdown(f"**时间：** {created_at}")
             if input_file:
                 st.markdown(f"**文件：** {Path(input_file).name}")
+            if preset_label:
+                st.markdown(f"**学术预设：** {preset_label}")
             if engine:
                 st.markdown(f"**引擎：** {engine}")
             if fmt and fmt != "none":
                 st.markdown(f"**排版风格：** { {'zhengda_cup': '正大杯报告格式'}.get(fmt, fmt) }")
             if isinstance(stripped_comments, bool):
                 st.markdown(f"**原文批注：** {'已删除' if stripped_comments else '保留'}")
+            if isinstance(diagnostics_only_flag, bool) and diagnostics_only_flag:
+                st.markdown("**运行模式：** 仅学术诊断")
+            elif isinstance(diagnostics_flag, bool):
+                st.markdown(f"**学术诊断：** {'开启' if diagnostics_flag else '关闭'}")
             if isinstance(expansion_level_flag, str):
                 label = {"none": "不扩充", "light": "轻量扩充", "heavy": "大量扩充"}.get(
                     expansion_level_flag, expansion_level_flag

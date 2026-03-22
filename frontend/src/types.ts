@@ -16,7 +16,9 @@ export type RunEvent = {
   data: Record<string, unknown>;
 };
 
-export type ReviewRun = {
+export type RunMode = "review" | "report" | "report-complete" | "report-integrate";
+
+export type AppRun = {
   id: string;
   mode: string;
   title: string;
@@ -35,6 +37,13 @@ export type ReviewRun = {
   events: RunEvent[];
 };
 
+export type CapabilityOption = {
+  key: string;
+  label: string;
+  available: boolean;
+  reason: string;
+};
+
 export type Capabilities = {
   root_dir: string;
   workspace_dir: string;
@@ -47,10 +56,54 @@ export type Capabilities = {
     apiyi_key: boolean;
   };
   review: {
-    engines: Array<{ key: string; label: string; available: boolean; reason: string }>;
-    format_profiles: Array<{ key: string; label: string; available: boolean; reason: string }>;
+    engines: CapabilityOption[];
+    format_profiles: CapabilityOption[];
     memory_scopes: Array<{ key: string; label: string }>;
     inline_context_modes: Array<{ key: string; label: string }>;
     expansion_levels: Array<{ key: string; label: string }>;
   };
+};
+
+export type ReviewPreset = {
+  key: string;
+  label: string;
+  description: string;
+  expert_view: string;
+  default_constraints: string[];
+  diagnostics_dimensions: string[];
+  section_expectations: Array<{
+    key: string;
+    label: string;
+    keywords: string[];
+    min_paragraphs: number;
+  }>;
+  skip_rules: string[];
+  recommended_format_profile: string;
+  sample_use_cases: string[];
+  system_prompt_scaffold: string;
+};
+
+export type DiagnosticsCard = {
+  key: string;
+  label: string;
+  severity: string;
+  headline: string;
+  score: number;
+};
+
+export type DiagnosticsPayload = {
+  generated_at: string;
+  preset: ReviewPreset;
+  input_path: string;
+  output_path: string;
+  overview: {
+    cards: DiagnosticsCard[];
+    critical_count: number;
+    warning_count: number;
+    average_score: number;
+    summary: string;
+  };
+  pre_review: Record<string, Record<string, unknown>>;
+  post_review: Record<string, Record<string, unknown>>;
+  change_risk: Record<string, unknown>;
 };
