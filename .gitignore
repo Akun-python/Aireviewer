@@ -1,0 +1,16 @@
+# Python caches and test artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local environment and editor state
+.env
+.vscode/
+
+# Runtime outputs and local scratch space
+tmp/
+workspace/
+
+# OS and packaging noise
+.DS_Store
+Thumbs.db
