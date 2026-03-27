@@ -7,6 +7,7 @@ import io
 import os
 from pathlib import Path
 import re
+from typing import Callable
 
 from app.services.capability_service import get_capabilities
 from app.services.diagnostics_service import write_review_diagnostics
@@ -116,6 +117,11 @@ class ReviewRequest:
     model_override: str = ""
     diagnostics: bool = True
     diagnostics_only: bool = False
+    conversation_id: str = ""
+    base_run_id: str = ""
+    version_no: int = 0
+    source_artifact: str = ""
+    thread_id_override: str = ""
 
     def to_store_params(self) -> dict:
         payload = asdict(self)
@@ -171,7 +177,14 @@ def _run_dir(store: RunStore, run_id: str) -> Path:
     return Path(record["run_dir"])
 
 
-def _execute_review_run(store: RunStore, run_id: str, request: ReviewRequest) -> None:
+def _execute_review_run(
+    store: RunStore,
+    run_id: str,
+    request: ReviewRequest,
+    *,
+    on_complete: Callable[[dict], None] | None = None,
+    on_failed: Callable[[dict], None] | None = None,
+) -> None:
     run_dir = _run_dir(store, run_id)
     input_filename = _safe_filename(request.filename)
     input_path = run_dir / input_filename
@@ -181,6 +194,8 @@ def _execute_review_run(store: RunStore, run_id: str, request: ReviewRequest) ->
     settings = load_settings()
     if request.model_override.strip():
         settings.model = request.model_override.strip()
+    if request.thread_id_override.strip():
+        settings.thread_id = request.thread_id_override.strip()
     settings.revision_engine = request.revision_engine
     settings.auto_approve = bool(request.auto_approve)
     resolved_expert, resolved_format, resolved_constraints = apply_preset_defaults(
@@ -266,6 +281,11 @@ def _execute_review_run(store: RunStore, run_id: str, request: ReviewRequest) ->
             _collect_artifacts(store, run_id, output_path)
             store.set_result(run_id, result_payload)
             store.update_status(run_id, status="completed")
+            if on_complete is not None:
+                try:
+                    on_complete(store.get_run(run_id) or {})
+                except Exception:
+                    pass
         except Exception as exc:  # noqa: BLE001
             logger.flush()
             store.set_result(
@@ -277,9 +297,21 @@ def _execute_review_run(store: RunStore, run_id: str, request: ReviewRequest) ->
                 },
             )
             store.update_status(run_id, status="failed", error=str(exc))
+            if on_failed is not None:
+                try:
+                    on_failed(store.get_run(run_id) or {})
+                except Exception:
+                    pass
 
 
-def create_review_run(store: RunStore, request: ReviewRequest, *, root_dir: str) -> dict:
+def create_review_run(
+    store: RunStore,
+    request: ReviewRequest,
+    *,
+    root_dir: str,
+    on_complete: Callable[[dict], None] | None = None,
+    on_failed: Callable[[dict], None] | None = None,
+) -> dict:
     _validate_request(request, root_dir)
     title = f"{Path(request.filename).name} · {request.intent.strip()[:20]}".strip()
     record = store.create_run(
@@ -287,9 +319,20 @@ def create_review_run(store: RunStore, request: ReviewRequest, *, root_dir: str)
         input_filename=request.filename,
         params=request.to_store_params(),
         title=title,
+        extra={
+            "conversation_id": request.conversation_id or "",
+            "version_no": int(request.version_no or 0) or None,
+            "base_run_id": request.base_run_id or "",
+            "source_artifact": request.source_artifact or "",
+        },
     )
     import threading
 
-    thread = threading.Thread(target=_execute_review_run, args=(store, record["id"], request), daemon=True)
+    thread = threading.Thread(
+        target=_execute_review_run,
+        args=(store, record["id"], request),
+        kwargs={"on_complete": on_complete, "on_failed": on_failed},
+        daemon=True,
+    )
     thread.start()
     return store.get_run(record["id"]) or record

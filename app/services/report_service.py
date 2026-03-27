@@ -12,8 +12,22 @@ from app.services.runtime import TASK_EXECUTION_LOCK
 from app.services.run_store import RunStore
 from app.settings import load_settings
 from app.tools.path_utils import ensure_parent, resolve_path
-from app.workflows.report import DEFAULT_FRAMEWORK, complete_report_docx, generate_report
-from app.workflows.report_integrate import integrate_report_chapters
+
+
+DEFAULT_FRAMEWORK = ""
+
+
+def _load_report_workflows():
+    from app.workflows.report import DEFAULT_FRAMEWORK as report_default_framework
+    from app.workflows.report import complete_report_docx, generate_report
+
+    return report_default_framework, complete_report_docx, generate_report
+
+
+def _load_integrate_workflow():
+    from app.workflows.report_integrate import integrate_report_chapters
+
+    return integrate_report_chapters
 
 
 def _now_stamp() -> str:
@@ -195,6 +209,7 @@ def _execute_report_run(store: RunStore, run_id: str, request: ReportRequest) ->
         store.update_status(run_id, status="running")
         try:
             settings = _build_settings(request.model_override)
+            report_default_framework, _complete_report_docx, generate_report = _load_report_workflows()
             with _temporary_env(
                 _report_env(
                     toc_position=request.toc_position,
@@ -206,7 +221,7 @@ def _execute_report_run(store: RunStore, run_id: str, request: ReportRequest) ->
                     settings=settings,
                     topic=request.topic,
                     output_path=str(output_path),
-                    framework_text=request.framework_text,
+                    framework_text=request.framework_text or report_default_framework,
                     total_chars=int(request.total_chars),
                     allow_web_search=bool(request.allow_web_search),
                     max_results_per_query=int(request.max_results_per_query),
@@ -237,6 +252,7 @@ def _execute_report_complete_run(store: RunStore, run_id: str, request: ReportCo
         store.update_status(run_id, status="running")
         try:
             settings = _build_settings(request.model_override)
+            _report_default_framework, complete_report_docx, _generate_report = _load_report_workflows()
             with _temporary_env(_report_env(toc_position=request.toc_position, format_profile=request.format_profile)):
                 result = complete_report_docx(
                     settings=settings,
@@ -276,6 +292,7 @@ def _execute_report_integrate_run(store: RunStore, run_id: str, request: ReportI
         store.update_status(run_id, status="running")
         try:
             settings = _build_settings(request.model_override)
+            integrate_report_chapters = _load_integrate_workflow()
             with _temporary_env(_report_env(toc_position=request.toc_position, format_profile=request.format_profile)):
                 result = integrate_report_chapters(
                     settings=settings,

@@ -1,4 +1,12 @@
-import type { AppRun, Capabilities, DiagnosticsPayload, ReviewPreset } from "../types";
+import type {
+  AppRun,
+  Capabilities,
+  DiagnosticsPayload,
+  ReviewConversation,
+  ReviewConversationAction,
+  ReviewConversationSummary,
+  ReviewPreset,
+} from "../types";
 
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ?? "";
 
@@ -24,6 +32,17 @@ async function postForm<T>(path: string, formData: FormData): Promise<T> {
   const response = await fetch(buildUrl(path), {
     method: "POST",
     body: formData,
+  });
+  return readJson<T>(response);
+}
+
+async function postJson<T>(path: string, payload: unknown): Promise<T> {
+  const response = await fetch(buildUrl(path), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
   });
   return readJson<T>(response);
 }
@@ -55,6 +74,17 @@ export async function fetchReviewPresets(): Promise<ReviewPreset[]> {
   return payload.presets;
 }
 
+export async function fetchReviewConversations(): Promise<ReviewConversationSummary[]> {
+  const response = await fetch(buildUrl("/api/review/conversations"));
+  const payload = await readJson<{ conversations: ReviewConversationSummary[] }>(response);
+  return payload.conversations;
+}
+
+export async function fetchReviewConversation(conversationId: string): Promise<ReviewConversation> {
+  const response = await fetch(buildUrl(`/api/review/conversations/${conversationId}`));
+  return readJson<ReviewConversation>(response);
+}
+
 export async function fetchRunDiagnostics(runId: string): Promise<DiagnosticsPayload> {
   const response = await fetch(buildUrl(`/api/review/runs/${runId}/diagnostics`));
   return readJson<DiagnosticsPayload>(response);
@@ -62,6 +92,23 @@ export async function fetchRunDiagnostics(runId: string): Promise<DiagnosticsPay
 
 export async function createReviewRun(formData: FormData): Promise<AppRun> {
   return postForm<AppRun>("/api/review/runs", formData);
+}
+
+export async function createReviewConversation(formData: FormData): Promise<ReviewConversation> {
+  return postForm<ReviewConversation>("/api/review/conversations", formData);
+}
+
+export async function createReviewConversationMessage(
+  conversationId: string,
+  payload: {
+    mode: "chat" | "apply";
+    content: string;
+    base_source: "latest" | "original" | "run";
+    base_run_id?: string;
+    options_patch?: Record<string, unknown>;
+  },
+): Promise<ReviewConversationAction> {
+  return postJson<ReviewConversationAction>(`/api/review/conversations/${conversationId}/messages`, payload);
 }
 
 export async function createReportRun(formData: FormData): Promise<AppRun> {

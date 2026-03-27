@@ -21,22 +21,30 @@ export default function App() {
   return (
     <div className="app-shell">
       <aside className="app-rail">
-        <div className="brand-block">
-          <div className="brand-mark">AA</div>
-          <div>
-            <div className="brand-title">学术文稿助手</div>
-            <div className="brand-subtitle">React 主入口 / Streamlit 控制台 / API 统一运行中心</div>
+        <div className="app-rail-top">
+          <div className="brand-block">
+            <div className="brand-mark">AA</div>
+            <div>
+              <div className="brand-kicker">Workspace</div>
+              <div className="brand-title">学术文稿助手</div>
+              <div className="brand-subtitle">审稿、报告与运行中心的一体化工作台</div>
+            </div>
           </div>
+          <nav aria-label="Primary" className="nav-stack">
+            {navItems.map((item) => (
+              <NavLink className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`} end={item.to === "/"} key={item.to} to={item.to}>
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
         </div>
-        <nav className="nav-stack">
-          {navItems.map((item) => (
-            <NavLink className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`} end={item.to === "/"} key={item.to} to={item.to}>
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-        <div className="rail-note">
-          React 负责主产品流程与运行中心，Streamlit 继续保留为内部控制台与兼容入口。
+
+        <div className="rail-meta">
+          <span className="rail-status-dot" />
+          <div>
+            <strong>React Workspace</strong>
+            <p>轻量前端壳层，后端能力保持不变。</p>
+          </div>
         </div>
       </aside>
 

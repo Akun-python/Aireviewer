@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from typing import List
 
 from app.api.models import RunResponse
 from app.services.report_service import (
@@ -106,7 +107,7 @@ async def create_report_complete_endpoint(
 @router.post("/report-integrate/runs", response_model=RunResponse)
 async def create_report_integrate_endpoint(
     request: Request,
-    files: list[UploadFile] = File(...),
+    files: List[UploadFile] = File(...),
     topic: str = Form(""),
     toc_position: str = Form("after_title"),
     format_profile: str = Form("thesis_standard"),

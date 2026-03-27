@@ -35,6 +35,10 @@ export type AppRun = {
   artifacts: Artifact[];
   event_count: number;
   events: RunEvent[];
+  conversation_id: string;
+  version_no?: number | null;
+  base_run_id: string;
+  source_artifact: string;
 };
 
 export type CapabilityOption = {
@@ -106,4 +110,71 @@ export type DiagnosticsPayload = {
   pre_review: Record<string, Record<string, unknown>>;
   post_review: Record<string, Record<string, unknown>>;
   change_risk: Record<string, unknown>;
+};
+
+export type ReviewConversationMode = "chat" | "apply";
+export type ReviewConversationBaseSource = "latest" | "original" | "run";
+
+export type ReviewConversationMessage = {
+  id: string;
+  role: string;
+  mode: ReviewConversationMode;
+  content: string;
+  status: string;
+  base_source: string;
+  base_run_id: string;
+  linked_run_id: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ReviewConversationVersion = {
+  version_no: number;
+  run_id: string;
+  base_run_id: string;
+  artifact_name: string;
+  source_artifact: string;
+  label: string;
+  diagnostics_run_id: string;
+  download_url: string;
+  created_at: string;
+};
+
+export type ReviewConversationSummary = {
+  id: string;
+  title: string;
+  input_filename: string;
+  preset_key: string;
+  created_at: string;
+  updated_at: string;
+  head_run_id: string;
+  head_version_no: number;
+  active_run_id: string;
+  message_count: number;
+  version_count: number;
+  last_message_excerpt: string;
+};
+
+export type ReviewConversation = {
+  id: string;
+  title: string;
+  input_filename: string;
+  preset_key: string;
+  defaults: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  head_run_id: string;
+  head_version_no: number;
+  active_run_id: string;
+  original_artifact: Artifact;
+  messages: ReviewConversationMessage[];
+  versions: ReviewConversationVersion[];
+  head_run: AppRun | null;
+};
+
+export type ReviewConversationAction = {
+  user_message: ReviewConversationMessage;
+  assistant_message: ReviewConversationMessage;
+  linked_run: AppRun | null;
 };

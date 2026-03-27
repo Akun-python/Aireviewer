@@ -567,10 +567,249 @@ pre {
   color: var(--muted);
 }
 
+.secondary-button {
+  background: rgba(182, 84, 47, 0.08);
+  border: 1px solid rgba(182, 84, 47, 0.18);
+  border-radius: 999px;
+  color: var(--accent-deep);
+  cursor: pointer;
+  padding: 12px 18px;
+}
+
+.compact-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.chat-layout {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(280px, 320px) minmax(0, 1fr) minmax(320px, 380px);
+}
+
+.chat-sidebar,
+.chat-main,
+.chat-sidepanel {
+  display: grid;
+  gap: 20px;
+}
+
+.compact-dropzone {
+  min-height: 120px;
+}
+
+.conversation-preview {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.chat-shell {
+  min-height: 780px;
+}
+
+.chat-history {
+  background: rgba(255, 255, 255, 0.35);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  display: grid;
+  gap: 14px;
+  max-height: 540px;
+  overflow: auto;
+  padding: 18px;
+}
+
+.chat-message {
+  border-radius: 20px;
+  display: grid;
+  gap: 10px;
+  max-width: 86%;
+  padding: 16px;
+}
+
+.chat-message-user {
+  background: rgba(182, 84, 47, 0.12);
+  justify-self: end;
+}
+
+.chat-message-assistant {
+  background: #fffaf2;
+  border: 1px solid var(--line);
+}
+
+.chat-message-meta {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.85rem;
+}
+
+.chat-message-body {
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+.chat-markdown > :first-child {
+  margin-top: 0;
+}
+
+.chat-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.chat-markdown p,
+.chat-markdown ul,
+.chat-markdown ol,
+.chat-markdown blockquote,
+.chat-markdown pre,
+.chat-markdown table,
+.chat-markdown .math-display {
+  margin: 0 0 0.9rem;
+}
+
+.chat-markdown ul,
+.chat-markdown ol {
+  padding-left: 1.4rem;
+}
+
+.chat-markdown li + li {
+  margin-top: 0.3rem;
+}
+
+.chat-markdown a {
+  color: var(--accent-deep);
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.18em;
+}
+
+.chat-markdown strong {
+  color: #222936;
+}
+
+.chat-markdown blockquote {
+  background: rgba(95, 110, 63, 0.08);
+  border-left: 4px solid rgba(95, 110, 63, 0.42);
+  border-radius: 14px;
+  color: #3d4731;
+  margin-left: 0;
+  padding: 0.8rem 1rem;
+}
+
+.chat-markdown code {
+  background: rgba(30, 36, 53, 0.08);
+  border-radius: 8px;
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.92em;
+  padding: 0.15rem 0.4rem;
+}
+
+.chat-markdown pre {
+  background: #171d2c;
+  border-radius: 16px;
+  color: #edf0f7;
+  overflow: auto;
+  padding: 0.95rem 1rem;
+}
+
+.chat-markdown pre code {
+  background: transparent;
+  color: inherit;
+  display: block;
+  padding: 0;
+}
+
+.chat-markdown table {
+  border-collapse: collapse;
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.chat-markdown th,
+.chat-markdown td {
+  border: 1px solid rgba(30, 36, 53, 0.12);
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+}
+
+.chat-markdown th {
+  background: rgba(182, 84, 47, 0.08);
+}
+
+.chat-markdown hr {
+  border: none;
+  border-top: 1px solid rgba(30, 36, 53, 0.12);
+  margin: 1rem 0;
+}
+
+.chat-markdown .katex-display {
+  margin: 0.9rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.15rem 0;
+}
+
+.chat-composer {
+  display: grid;
+  gap: 16px;
+}
+
+.composer-actions {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+.composer-hint,
+.inline-note {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.two-col-span {
+  grid-column: 1 / -1;
+}
+
+.version-list {
+  display: grid;
+  gap: 12px;
+}
+
+.version-card {
+  background: #fffaf2;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.version-card-active {
+  border-color: rgba(182, 84, 47, 0.32);
+  box-shadow: inset 0 0 0 1px rgba(182, 84, 47, 0.14);
+}
+
+.version-select {
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: 6px;
+  padding: 0;
+  text-align: left;
+}
+
+.artifact-link {
+  color: var(--accent-deep);
+  font-weight: 600;
+}
+
 @media (max-width: 1200px) {
   .app-shell,
   .workspace-grid,
-  .hero-panel {
+  .hero-panel,
+  .chat-layout {
     grid-template-columns: 1fr;
   }
 
