@@ -39,6 +39,170 @@ def test_review_presets_endpoint_returns_presets() -> None:
     assert any(item["key"] == "general_academic" for item in payload["presets"])
 
 
+def test_review_conversation_endpoints_roundtrip(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("AGENT_ROOT_DIR", str(tmp_path))
+    client = TestClient(create_app())
+
+    create_response = client.post(
+        "/api/review/conversations",
+        files={"file": ("demo.docx", b"docx-content", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+        data={"title": "demo", "preset_key": "general_academic"},
+    )
+    assert create_response.status_code == 200
+    payload = create_response.json()
+    conversation_id = payload["id"]
+    assert payload["title"] == "demo"
+    assert payload["original_artifact"]["download_url"].endswith("/original_docx")
+
+    list_response = client.get("/api/review/conversations")
+    assert list_response.status_code == 200
+    assert any(item["id"] == conversation_id for item in list_response.json()["conversations"])
+
+    detail_response = client.get(f"/api/review/conversations/{conversation_id}")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["id"] == conversation_id
+
+
+def test_review_conversation_pending_active_run_is_not_exposed(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("AGENT_ROOT_DIR", str(tmp_path))
+    client = TestClient(create_app())
+    conversation_store = client.app.state.review_conversation_store
+    conversation = conversation_store.create_conversation(
+        title="demo",
+        input_filename="demo.docx",
+        preset_key="general_academic",
+        defaults={"revision_engine": "auto"},
+        original_filename="demo.docx",
+        original_bytes=b"docx-content",
+        content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+    conversation_store.set_active_run(conversation["id"], "pending:assistant-message")
+
+    detail_response = client.get(f"/api/review/conversations/{conversation['id']}")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["active_run_id"] == ""
+
+    list_response = client.get("/api/review/conversations")
+    assert list_response.status_code == 200
+    item = next(item for item in list_response.json()["conversations"] if item["id"] == conversation["id"])
+    assert item["active_run_id"] == ""
+
+
+def test_review_conversation_message_endpoints_accept_chat_and_apply(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("AGENT_ROOT_DIR", str(tmp_path))
+    client = TestClient(create_app())
+    conversation_store = client.app.state.review_conversation_store
+    conversation = conversation_store.create_conversation(
+        title="demo",
+        input_filename="demo.docx",
+        preset_key="general_academic",
+        defaults={"revision_engine": "auto"},
+        original_filename="demo.docx",
+        original_bytes=b"docx-content",
+        content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+
+    monkeypatch.setattr(
+        "app.api.routes_review.create_conversation_chat_message",
+        lambda *_args, **_kwargs: {
+            "user_message": {
+                "id": "user-chat",
+                "role": "user",
+                "mode": "chat",
+                "content": "摘要有哪些问题",
+                "status": "completed",
+                "base_source": "latest",
+                "base_run_id": "",
+                "linked_run_id": "",
+                "metadata": {},
+                "created_at": "2026-03-22 00:00:00",
+                "updated_at": "2026-03-22 00:00:00",
+            },
+            "assistant_message": {
+                "id": "assistant-chat",
+                "role": "assistant",
+                "mode": "chat",
+                "content": "摘要偏长。",
+                "status": "completed",
+                "base_source": "latest",
+                "base_run_id": "",
+                "linked_run_id": "",
+                "metadata": {},
+                "created_at": "2026-03-22 00:00:00",
+                "updated_at": "2026-03-22 00:00:00",
+            },
+            "linked_run": None,
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routes_review.create_conversation_apply_message",
+        lambda *_args, **_kwargs: {
+            "user_message": {
+                "id": "user-apply",
+                "role": "user",
+                "mode": "apply",
+                "content": "重写摘要",
+                "status": "submitted",
+                "base_source": "latest",
+                "base_run_id": "",
+                "linked_run_id": "",
+                "metadata": {},
+                "created_at": "2026-03-22 00:00:00",
+                "updated_at": "2026-03-22 00:00:00",
+            },
+            "assistant_message": {
+                "id": "assistant-apply",
+                "role": "assistant",
+                "mode": "apply",
+                "content": "处理中",
+                "status": "running",
+                "base_source": "latest",
+                "base_run_id": "",
+                "linked_run_id": "run-apply",
+                "metadata": {},
+                "created_at": "2026-03-22 00:00:00",
+                "updated_at": "2026-03-22 00:00:00",
+            },
+            "linked_run": {
+                "id": "run-apply",
+                "mode": "review",
+                "title": "demo",
+                "status": "running",
+                "input_filename": "demo.docx",
+                "params": {},
+                "created_at": "2026-03-22 00:00:00",
+                "updated_at": "2026-03-22 00:00:00",
+                "started_at": "",
+                "finished_at": "",
+                "error": "",
+                "run_dir": str(tmp_path),
+                "result": {},
+                "artifacts": [],
+                "event_count": 0,
+                "events": [],
+                "conversation_id": conversation["id"],
+                "version_no": 1,
+                "base_run_id": "",
+                "source_artifact": "original_docx",
+            },
+        },
+    )
+
+    chat_response = client.post(
+        f"/api/review/conversations/{conversation['id']}/messages",
+        json={"mode": "chat", "content": "摘要有哪些问题", "base_source": "latest"},
+    )
+    assert chat_response.status_code == 200
+    assert chat_response.json()["assistant_message"]["mode"] == "chat"
+
+    apply_response = client.post(
+        f"/api/review/conversations/{conversation['id']}/messages",
+        json={"mode": "apply", "content": "重写摘要", "base_source": "latest", "options_patch": {"diagnostics": True}},
+    )
+    assert apply_response.status_code == 200
+    assert apply_response.json()["linked_run"]["conversation_id"] == conversation["id"]
+
+
 def test_generic_run_endpoint_returns_serialized_run(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("AGENT_ROOT_DIR", str(tmp_path))
     client = TestClient(create_app())

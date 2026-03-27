@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, StreamingResponse
@@ -37,7 +38,7 @@ async def get_capabilities_endpoint(request: Request):
 
 
 @router.get("/api/runs", response_model=RunListResponse)
-async def list_runs(request: Request, mode: str | None = Query(default=None)):
+async def list_runs(request: Request, mode: Optional[str] = Query(default=None)):
     store: RunStore = request.app.state.run_store
     runs = [_serialize_run(item) for item in store.list_runs(mode=mode)]
     return {"runs": runs}

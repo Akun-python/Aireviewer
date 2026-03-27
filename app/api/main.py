@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes_report import router as report_router
 from app.api.routes_review import router as review_router
 from app.api.routes_runs import router as system_router
+from app.services.review_conversation_store import get_review_conversation_store
 from app.services.run_store import get_run_store
 from app.settings import load_settings
 
@@ -39,6 +40,7 @@ def create_app() -> FastAPI:
 
     app.state.root_dir = root_dir
     app.state.run_store = get_run_store(root_dir)
+    app.state.review_conversation_store = get_review_conversation_store(root_dir)
 
     @app.get("/")
     async def root():

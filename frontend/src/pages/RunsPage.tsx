@@ -46,9 +46,10 @@ export default function RunsPage() {
                     <span className={`status-pill status-${run.status}`}>{formatStatus(run.status)}</span>
                   </div>
                   <div className="run-list-meta">
-                    <span>{formatMode(run.mode)}</span>
+                    <span>{run.version_no ? `V${run.version_no}` : formatMode(run.mode)}</span>
                     <span>{run.created_at}</span>
                   </div>
+                  {run.conversation_id ? <div className="conversation-preview">会话 {run.conversation_id.slice(0, 8)}</div> : null}
                 </button>
               ))}
             </div>

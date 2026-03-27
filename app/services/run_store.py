@@ -105,7 +105,15 @@ class RunStore:
             f"persist failed: {last_error or 'unknown'}; wrote fallback snapshot to {fallback_path.name}"
         )
 
-    def create_run(self, *, mode: str, input_filename: str, params: dict, title: str | None = None) -> dict:
+    def create_run(
+        self,
+        *,
+        mode: str,
+        input_filename: str,
+        params: dict,
+        title: str | None = None,
+        extra: dict | None = None,
+    ) -> dict:
         with self._lock:
             run_id = uuid.uuid4().hex
             now = _now_iso()
@@ -129,6 +137,11 @@ class RunStore:
                 "events": [],
                 "event_seq": 0,
             }
+            if isinstance(extra, dict):
+                for key, value in extra.items():
+                    if key in {"events", "event_seq"}:
+                        continue
+                    record[key] = deepcopy(value)
             self._runs[run_id] = record
             self._persist()
             return self._public_run(record)
@@ -265,13 +278,15 @@ class RunStore:
         return payload
 
 
-_STORE: RunStore | None = None
+_STORES: dict[str, RunStore] = {}
 _STORE_LOCK = threading.Lock()
 
 
 def get_run_store(root_dir: str) -> RunStore:
-    global _STORE
+    resolved_root = str(Path(root_dir).resolve())
     with _STORE_LOCK:
-        if _STORE is None:
-            _STORE = RunStore(root_dir)
-        return _STORE
+        store = _STORES.get(resolved_root)
+        if store is None:
+            store = RunStore(resolved_root)
+            _STORES[resolved_root] = store
+        return store
