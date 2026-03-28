@@ -31,6 +31,42 @@ English: React is the primary workflow UI, while Streamlit remains available as 
 
 English: The result keeps a deliverable Word document and also emits revision summary, run logs, and diagnostics JSON for manual verification.
 
+### 课题报告生成 / Report Workflow
+
+![课题报告生成 / Report Workflow](resource/report-workflow.png)
+
+English: Topic report generation page with framework editing, generation parameters, and a side-by-side result area.
+
+### 报告完善 / Report Completion
+
+![报告完善 / Report Completion](resource/report-complete-workflow.png)
+
+English: Existing report completion workflow with document upload, completion switches, and run feedback panels.
+
+### 多章整合 / Chapter Integration
+
+![多章整合 / Chapter Integration](resource/report-integrate-workflow.png)
+
+English: Multi-chapter integration page for combining Word sections into one structured report package.
+
+### 运行中心 / Run Center
+
+![运行中心 / Run Center](resource/run-center.png)
+
+English: Centralized run list for review and report workflows, including recent tasks and status tracking.
+
+### 预设规则 / Preset Library
+
+![预设规则 / Preset Library](resource/preset-library.png)
+
+English: Shared preset cards exposed to both React and Streamlit, showing roles, diagnostics dimensions, and default constraints.
+
+### 设置 / Settings & Ops
+
+![设置 / Settings & Ops](resource/settings-ops.png)
+
+English: Environment capability overview covering interfaces, API endpoint, and local runtime readiness.
+
 ## 当前可用入口 / Current Interfaces
 
 | 入口 / Interface | 定位 / Role | 当前能力 / Current Capability |
